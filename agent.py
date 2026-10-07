@@ -1,17 +1,20 @@
-"""Stage 3 exercise: add memory.
+"""Stage 4 exercise: planning and subagent delegation.
 
-TODO(stage-3): wire up:
-  1. `checkpointer=MemorySaver()` (from langgraph.checkpoint.memory) so the
-     agent remembers earlier turns within the same thread_id.
-  2. a `backend=CompositeBackend(default=StateBackend(), routes={"/memories/":
-     StoreBackend(namespace=lambda rt: ("memories",), store=store)})` (from
-     deepagents.backends) so anything written under /memories/ survives
-     across threads.
-  3. `store=InMemoryStore()` (from langgraph.store.memory), passed to both
-     StoreBackend above and create_deep_agent below.
+TODO(stage-4): in subagents.py, fill in `research_subagent` and
+`writer_subagent` (system_prompt + tools).
+
+TODO(stage-4): here, replace `tools=[lookup]` with
+`subagents=[research_subagent, writer_subagent]`, add
+`middleware=[TodoListMiddleware()]` (from langchain.agents.middleware), and
+update SYSTEM_PROMPT to plan sub-questions with write_todos, delegate each
+to research-agent, then delegate the write-up to writer-agent.
 """
 
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.store.memory import InMemoryStore
+
 from deepagents import create_deep_agent
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 
 from model import llm
 from tools.lookup_tool import lookup
@@ -29,4 +32,20 @@ Always call the lookup tool before answering a new research topic. Only use fact
 Cite the source field. If it returns no results, say you have no information on that topic.
 """
 
-agent = create_deep_agent(model=llm, system_prompt=SYSTEM_PROMPT, tools=[lookup])
+store = InMemoryStore()
+
+backend = CompositeBackend(
+    default=StateBackend(),
+    routes={
+        "/memories/": StoreBackend(namespace=lambda rt: ("memories",), store=store),
+    },
+)
+
+agent = create_deep_agent(
+    model=llm,
+    system_prompt=SYSTEM_PROMPT,
+    tools=[lookup],
+    backend=backend,
+    store=store,
+    checkpointer=MemorySaver(),
+)
