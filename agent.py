@@ -1,9 +1,17 @@
-"""Stage 2: + the lookup tool.
+"""Stage 3: + memory.
 
-Always call lookup before answering a new research topic; cite sources.
+A checkpointer scopes conversation history to a thread_id: same thread id =
+the agent remembers earlier turns; new thread id = it forgets. The
+CompositeBackend below routes anything written under /memories/ to a
+cross-thread store instead of per-thread state, so it survives even a new
+thread id.
 """
 
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.store.memory import InMemoryStore
+
 from deepagents import create_deep_agent
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 
 from model import llm
 from tools.lookup_tool import lookup
@@ -21,4 +29,21 @@ Always call the lookup tool before answering a new research topic. Only use fact
 Cite the source field. If it returns no results, say you have no information on that topic.
 """
 
-agent = create_deep_agent(model=llm, system_prompt=SYSTEM_PROMPT, tools=[lookup])
+# Long-term store: anything written under /memories/ survives across threads.
+store = InMemoryStore()
+
+backend = CompositeBackend(
+    default=StateBackend(),  # per-thread scratch files
+    routes={
+        "/memories/": StoreBackend(namespace=lambda rt: ("memories",), store=store),
+    },
+)
+
+agent = create_deep_agent(
+    model=llm,
+    system_prompt=SYSTEM_PROMPT,
+    tools=[lookup],
+    backend=backend,
+    store=store,
+    checkpointer=MemorySaver(),
+)
