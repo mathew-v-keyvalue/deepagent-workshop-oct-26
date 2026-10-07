@@ -1,8 +1,11 @@
-"""Stage 4: + planning (write_todos) and subagent delegation - the mini project.
+"""create_deep_agent wiring - the file that grows stage by stage.
 
-The agent now plans 2-3 sub-questions and delegates each one to
-research-agent, then delegates the write-up to writer-agent, instead of
-calling lookup itself. Same research task as Stage 2/3, but agent-driven.
+Stage 1: a hello-world agent with a system prompt.
+Stage 2: + the lookup tool.
+Stage 3: + memory (checkpointer, thread-scoped files + a cross-thread
+          /memories/ store).
+Stage 4: + planning (write_todos) and subagent delegation - the mini project.
+Stage 5: + human approval on save_note (interrupt_on).
 """
 
 from langchain.agents.middleware import TodoListMiddleware
@@ -14,6 +17,7 @@ from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
 
 from model import llm
 from subagents import research_subagent, writer_subagent
+from tools.save_note_tool import save_note
 
 SYSTEM_PROMPT = """
 You are a research assistant that gives concise, factual, sourced summaries.
@@ -27,12 +31,14 @@ For a new research topic:
 
 If the user asks to change a previous answer (for example "make it
 shorter"), rewrite the previous summary yourself instead of re-researching.
+If the user asks you to save or remember a note, use the save_note tool.
 """
 
+# Long-term store: anything written under /memories/ survives across threads.
 store = InMemoryStore()
 
 backend = CompositeBackend(
-    default=StateBackend(),
+    default=StateBackend(),  # per-thread scratch files (e.g. /report.md)
     routes={
         "/memories/": StoreBackend(namespace=lambda rt: ("memories",), store=store),
     },
@@ -41,9 +47,11 @@ backend = CompositeBackend(
 agent = create_deep_agent(
     model=llm,
     system_prompt=SYSTEM_PROMPT,
+    tools=[save_note],
     subagents=[research_subagent, writer_subagent],
     middleware=[TodoListMiddleware()],
     backend=backend,
     store=store,
     checkpointer=MemorySaver(),
+    interrupt_on={"save_note": {"allowed_decisions": ["approve", "reject"]}},
 )
