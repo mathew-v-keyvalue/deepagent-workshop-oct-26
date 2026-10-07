@@ -1,0 +1,5 @@
+deepagents>=0.7.22,<0.8
+langchain-openai>=1.6,<2
+python-dotenv>=1.2,<2
+streamlit>=1.60,<2
+requests>=2.30,<3
