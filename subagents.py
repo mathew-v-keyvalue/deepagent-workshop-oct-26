@@ -1,26 +1,37 @@
-"""Stage 4 exercise: subagents for the agent-driven research pipeline.
+"""Stage 4: subagents for the agent-driven research pipeline.
 
-TODO(stage-4): define two subagent specs:
-  - research_subagent: add a "system_prompt" instructing it to call the
-    lookup tool and cite sources, and "tools": [lookup].
-  - writer_subagent: add a "system_prompt" instructing it to turn research
-    notes into a final sourced summary and write it to /report.md (the
-    built-in write_file tool).
-
-See the Lab 4 slide ("Delegation: subagents") for the shape of a subagent
-dict: {"name": ..., "description": ..., "system_prompt": ..., "tools": [...]}
+The main agent plans sub-questions with write_todos, then delegates each one
+to research-agent via the built-in task tool, and finally delegates the
+write-up to writer-agent, which writes the final report to a virtual file.
 """
 
 from tools.lookup_tool import lookup
 
 research_subagent = {
     "name": "research-agent",
-    "description": "Answers one research question with short notes and sources.",
-    # TODO(stage-4): add "system_prompt" and "tools": [lookup]
+    "description": (
+        "Answers one research question with short notes and sources. "
+        "Call once per sub-question."
+    ),
+    "system_prompt": (
+        "You are a careful researcher. Call the lookup tool, then write 2-3 "
+        "short bullet notes with the source URL for each fact. Cite every "
+        "source. If lookup returns nothing, say you found no information."
+    ),
+    "tools": [lookup],
 }
 
 writer_subagent = {
     "name": "writer-agent",
-    "description": "Turns gathered research notes into the final sourced summary.",
-    # TODO(stage-4): add "system_prompt"
+    "description": (
+        "Turns gathered research notes into the final sourced summary and "
+        "writes it to /report.md."
+    ),
+    "system_prompt": (
+        "You are a careful technical writer. Given research notes from one "
+        "or more sub-questions, write a final summary: a title, 3-5 bullet "
+        "points, a one-line conclusion, and a sources list. Keep it under "
+        "150 words and cite every source. Write the result to /report.md "
+        "using the write_file tool."
+    ),
 }
